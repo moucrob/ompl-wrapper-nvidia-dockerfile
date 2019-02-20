@@ -1,0 +1,49 @@
+ADD file:a83ab1826f43e88bc0d3ab6230f14cb9b2dacab70c762c3bfc555eda733b292c in / 
+set -xe   && echo '#!/bin/sh' > /usr/sbin/policy-rc.d  && echo 'exit 101' >> /usr/sbin/policy-rc.d  && chmod +x /usr/sbin/policy-rc.d   && dpkg-divert --local --rename --add /sbin/initctl  && cp -a /usr/sbin/policy-rc.d /sbin/initctl  && sed -i 's/^exit.*/exit 0/' /sbin/initctl   && echo 'force-unsafe-io' > /etc/dpkg/dpkg.cfg.d/docker-apt-speedup   && echo 'DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };' > /etc/apt/apt.conf.d/docker-clean  && echo 'APT::Update::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };' >> /etc/apt/apt.conf.d/docker-clean  && echo 'Dir::Cache::pkgcache ""; Dir::Cache::srcpkgcache "";' >> /etc/apt/apt.conf.d/docker-clean   && echo 'Acquire::Languages "none";' > /etc/apt/apt.conf.d/docker-no-languages   && echo 'Acquire::GzipIndexes "true"; Acquire::CompressionTypes::Order:: "gz";' > /etc/apt/apt.conf.d/docker-gzip-indexes   && echo 'Apt::AutoRemove::SuggestsImportant "false";' > /etc/apt/apt.conf.d/docker-autoremove-suggests
+rm -rf /var/lib/apt/lists/*
+sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
+mkdir -p /run/systemd && echo 'docker' > /run/systemd/container
+CMD ["/bin/bash"]
+apt-get update && apt-get install -q -y     dirmngr     gnupg2     lsb-release     && rm -rf /var/lib/apt/lists/*
+apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 421C365BD9FF1F717815A3895523BAEEB01FA116
+echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list
+apt-get update && apt-get install --no-install-recommends -y     python-rosdep     python-rosinstall     python-vcstools     && rm -rf /var/lib/apt/lists/*
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+rosdep init     && rosdep update
+ENV ROS_DISTRO=kinetic
+apt-get update && apt-get install -y     ros-kinetic-ros-core=1.3.2-0*     && rm -rf /var/lib/apt/lists/*
+COPY file:824303428ad16ae6296df253434e00a00126dc8404f740a8b885c9f61a2f5fcb in / 
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]
+apt-get update && apt-get install -y     ros-kinetic-ros-base=1.3.2-0*     && rm -rf /var/lib/apt/lists/*
+apt-get update && apt-get install -y     ros-kinetic-perception=1.3.2-0*     && rm -rf /var/lib/apt/lists/*
+MAINTAINER "Shadow Robot's Software Team <software@shadowrobot.com>"
+LABEL Description=This image is used to make ROS Kinetic based projects build faster using build tools Vendor=Shadow Robot Version=1.0
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PULSE_SERVER=/run/pulse/native
+ENV GOSU_VERSION=1.10
+ENV MY_USERNAME=user
+ENV toolset_branch=master
+ENV server_type=docker_hub
+ENV used_modules=check_cache,create_workspace
+ENV ros_release_name=kinetic
+ENV remote_shell_script=https://raw.githubusercontent.com/shadow-robot/sr-build-tools/master/bin/sr-run-ci-build.sh
+ENV remote_additional_bashrc_cmds=https://raw.githubusercontent.com/shadow-robot/sr-build-tools/master/docker/utils/additional_bashrc_cmds_kinetic
+COPY file:557eb435c5266907dbf5a9eb4e45c482e2ecb29441cf10c8388b4b58c941c008 in /usr/local/bin/entrypoint.sh 
+COPY file:85e1f8b4491de2b94a9b58256be73988d12a92e0dd91b2f6202c7a2cb2728569 in /tmp/terminator_config 
+set -x &&         echo "Installing wget" &&     apt-get update &&     apt-get upgrade -y &&     apt-get install -y --no-install-recommends ca-certificates wget sudo &&     apt-get install -y bash-completion &&     apt-get install -y gdb &&         echo "Running one-liner" &&     wget -O /tmp/oneliner "$( echo "$remote_shell_script" | sed 's/#/%23/g' )" &&     chmod 755 /tmp/oneliner &&     /tmp/oneliner "$toolset_branch" $server_type 'setup_docker_user' &&     gosu $MY_USERNAME /tmp/oneliner "$toolset_branch" $server_type $used_modules &&         echo "Updating bash commands" &&     wget -O /tmp/additional_bashrc_cmds "$( echo "$remote_additional_bashrc_cmds" | sed 's/#/%23/g' )" &&     cat /tmp/additional_bashrc_cmds >> /home/user/.bashrc &&         echo "Setting default terminator config" &&     mkdir -p /home/$MY_USERNAME/.config/terminator/ &&     mv /tmp/terminator_config /home/$MY_USERNAME/.config/terminator/config &&     chown -R $MY_USERNAME:$MY_USERNAME /home/$MY_USERNAME/.config &&        echo "Removing cache" &&     apt-get clean &&     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /home/$MY_USERNAME/.ansible /home/$MY_USERNAME/.gitconfig /home/$MY_USERNAME/.cache
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/terminator"]
+MAINTAINER "Shadow Robot's Software Team <software@shadowrobot.com>"
+LABEL Description=An image generated during the testing of Shadow's release procedures. Version=1.0
+COPY file:3327c26e076a4de5cd458ec53477784cd917228dfbb99bdb08314ec1ee8761a6 in /usr/local/bin/setup.sh 
+COPY file:bf82ef55489f482438f3ed7946369e869f50e98d8be72ff398c8687f6f3b2c71 in /usr/local/bin/setup.launch 
+ENV remote_shell_script=https://raw.githubusercontent.com/shadow-robot/sr-build-tools/master/ansible/deploy.sh
+ENV PROJECTS_WS=/home/user/projects/shadow_robot
+ENV rosinstall_repo=shadow_flexible_hand
+ENV rosinstall_repo_branch=kinetic-devel
+set +x &&         echo "Getting ssh key from the http server" &&     mkdir /home/user/.ssh &&     wget --tries=5 -O /home/user/.ssh/id_rsa http://172.17.0.1:8008/id_rsa &&     ssh-keyscan github.com >> /home/user/.ssh/known_hosts &&     chmod 400 /home/user/.ssh/id_rsa &&     chown -R $MY_USERNAME:$MY_USERNAME /home/user/.ssh &&         echo "Running one-liner" &&     apt-get update &&     wget -O /tmp/oneliner "$( echo "$remote_shell_script" | sed 's/#/%23/g' )" &&     chmod 755 /tmp/oneliner &&     gosu $MY_USERNAME /tmp/oneliner -w $PROJECTS_WS/base -r $rosinstall_repo -b $rosinstall_repo_branch -i repository.rosinstall -v "$ros_release_name" -s true -t mongodb,pyassimp &&         echo "Installing production tools" &&     wget -O /tmp/production_tools https://raw.githubusercontent.com/shadow-robot/sr-build-tools/$(echo $toolset_branch | sed 's/#/%23/g')/bin/install-production-tools.sh &&     bash /tmp/production_tools -v "$ros_release_name" -b "$toolset_branch"  &&         echo "Installing AWS CLI" &&     curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "/tmp/awscli-bundle.zip" &&     unzip -o /tmp/awscli-bundle.zip -d /tmp/ &&     /tmp/awscli-bundle/install -b /usr/local/bin/aws &&         echo "Removing cache" &&     apt-get clean &&     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /home/$MY_USERNAME/.ssh/*
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/setup.sh"]
+terminator -x bash -c pkill -f "^"shadow_launcher_app_xterm && /usr/local/bin/setup_modular_grasper.sh && bash || bash
